@@ -244,12 +244,12 @@ Used for titles with levels like `org-level-%s' or
   :type 'number
   :group 'alect)
 
-(defcustom alect-single-title-height 1.13
+(defcustom alect-single-title-height 1.0
   "Height of `alect-title' face."
   :type 'number
   :group 'alect)
 
-(defcustom alect-multiple-titles-height 1.13
+(defcustom alect-multiple-titles-height 1.0
   "Height of `alect-title-N' faces."
   :type 'number
   :group 'alect)
