@@ -97,6 +97,39 @@ White space here is any of: space, tab, emacs newline (line feed, ASCII 10)."
       	    (kill-buffer (current-buffer)))
       	(message "CheckIP failed.")))))
 
+
+;;; souhu ip api
+;;;###autoload
+(defun ipsh (ipadd)
+  (interactive
+   (list (read-from-minibuffer "ipsouhu api: " (net-utils-machine-at-point))))
+  (let* (
+	 (ipadd (if (string= "" (trim-string ipadd))
+		    (trim-string (shell-command-to-string "curl -s whatismyip.akamai.com")) ;为空则查询本机ip
+		  (trim-string ipadd)
+		  ))
+	 (url (concat "http://ip-api.com/json/" ipadd "?lang=zh-CN"))
+	 )
+    (message "IP: %s Query..." ipadd)
+    (request
+      url
+      :parser 'json-read
+      :success (cl-function
+		(lambda (&key data &allow-other-keys)
+		  (if (string= (assoc-default 'status data) "success")
+		      (let* (
+			     (country (assoc-default 'country data))
+			     (regionName (assoc-default 'regionName data))
+			     (city (assoc-default 'city data))
+			     (isp (assoc-default 'isp data))
+			     (query (assoc-default 'query data))
+			     )
+			(message "IP: %s => %s" query (concat country " " regionName " " city " " isp)))
+		    (message (concat (assoc-default 'message data)
+				     " ip: " 
+				     (assoc-default 'query data)))
+		    ))))))
+
 (provide 'google-search)
 
 ;;; google-search.el ends here
