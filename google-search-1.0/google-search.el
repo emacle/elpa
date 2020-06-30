@@ -97,7 +97,6 @@ White space here is any of: space, tab, emacs newline (line feed, ASCII 10)."
       	    (kill-buffer (current-buffer)))
       	(message "CheckIP failed.")))))
 
-
 ;;; souhu ip api
 ;;;###autoload
 (defun ipsh (ipadd)

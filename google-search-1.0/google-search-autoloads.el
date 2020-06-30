@@ -3,7 +3,7 @@
 ;;; Code:
 
 
-;;;### (autoloads (ip138 google-it) "google-search" "google-search.el"
+;;;### (autoloads (ipsh ip138 google-it) "google-search" "google-search.el"
 ;;;;;;  (21085 2075 0 0))
 ;;; Generated autoloads from google-search.el
 
@@ -13,6 +13,12 @@ Search for SEARCH-STRING on google.
 \(fn)" t nil)
 
 (autoload 'ip138 "google-search" "\
+
+
+\(fn IPADD)" t nil)
+
+
+(autoload 'ipsh "google-search" "\
 
 
 \(fn IPADD)" t nil)
