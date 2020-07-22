@@ -1,8 +1,8 @@
 ;;; smart-input-source.el --- Switch OS native input source smartly -*- lexical-binding: t; -*-
 
 ;; URL: https://github.com/laishulu/emacs-smart-input-source
-;; Package-Version: 20200716.1719
-;; Package-Commit: d9ac0478f8373346a44424cedff362cfa6872a87
+;; Package-Version: 20200721.357
+;; Package-Commit: 6f4a961ad024bebf3777d37ee3fb864045036570
 ;; Created: March 27th, 2020
 ;; Keywords: convenience
 ;; Package-Requires: ((names "0.5") (emacs "25") (terminal-focus-reporting "0.0"))
@@ -91,6 +91,12 @@ nil means obtained from the envrionment.")
 
 (defvar respect-prefix-and-buffer t
   "Preserve buffer input source when `global-respect-mode' enabled.")
+
+(defvar preserve-go-english-triggers nil
+  "Triggers to save input source to buffer and then go to english.")
+
+(defvar preserve-restore-triggers nil
+  "Triggers to restore the input source from buffer.")
 
 (defvar preserve-save-hooks
   (list 'focus-out-hook)
@@ -379,11 +385,11 @@ other-source: OTHER language input source, nil means default,
 type: TYPE can be 'emacs, 'emp, 'macism, 'im-select, 'fcitx, 'fcitx5, 'ibus.
       nil TYPE fits both 'emp and 'macism."
   (interactive)
-  (unless english-source
+  (when english-source
     (setq english english-source))
-  (unless other-source
+  (when other-source
     (setq other other-source))
-  (unless ism-type
+  (when ism-type
     (setq external-ism (pcase ism-type
                          ('emacs nil)
                          ('emp nil)
@@ -403,10 +409,10 @@ type: TYPE can be 'emacs, 'emp, 'macism, 'im-select, 'fcitx, 'fcitx5, 'ibus.
                    (unless (equal source current-input-method)
                      (toggle-input-method)))))
    (; for builtin supoort, use the default do-get and do-set
-    (member ism-type (list nil 'emp 'macism 'im-select))
+    (memq ism-type (list nil 'emp 'macism 'im-select))
     t)
    (; fcitx and fcitx5, use the default do-get, set do-set
-    (member ism-type (list 'fcitx-remote 'fcitx5-remote))
+    (memq ism-type (list 'fcitx 'fcitx5))
     (setq english "1")
     (setq other "2")
     (setq do-set (lambda(source)
@@ -578,6 +584,9 @@ Possible values: 'normal, 'prefix, 'sequence.")
 (defvar -buffer-before-prefix nil
   "Current buffer before prefix.")
 
+(defvar -buffer-before-minibuffer nil
+  "Current buffer before enter minibuffer.")
+
 (defvar -buffer-before-command nil
   "Current buffer before prefix.")
 
@@ -612,6 +621,7 @@ Possible values: 'normal, 'prefix, 'sequence.")
 (defun -preserve-save-handler ()
   "Handler for `preserve-save-hooks'."
 
+  ;; `mouse-drag-region' causes lots of noise.
   (unless (eq this-command 'mouse-drag-region)
     (-save-to-buffer t)
     (set-english))
@@ -644,6 +654,10 @@ Possible values: 'normal, 'prefix, 'sequence.")
     (; current is normal stage
      'normal
      (cond
+      (; enter english era
+       (memq -real-this-command preserve-go-english-triggers)
+       (-save-to-buffer t)
+       (set-english))
       (; not prefix key
        (not (eq -real-this-command #'-prefix-override-handler))
        t)
@@ -652,6 +666,10 @@ Possible values: 'normal, 'prefix, 'sequence.")
        (eq -real-this-command #'-prefix-override-handler)
 
        ;; go to pre@[prefix] directly
+       (when log-mode
+         (message
+          "[%s] is a prefix key, short circuit to prefix phase."
+          (this-command-keys)))
        (setq -prefix-handle-stage 'prefix)
        (-preserve-pre-command-handler))))
     (; current is prefix stage
@@ -687,10 +705,14 @@ Possible values: 'normal, 'prefix, 'sequence.")
 
 (defsubst -to-normal-stage (restore)
   "Transite to normal stage and restore input source if RESTORE is t."
-  (when restore
-    (when log-mode (message "restore: [%s]@[%s]." -for-buffer (current-buffer)))
-
-    (-restore-from-buffer)
+  (when restore 
+    ;; minibuffer are handled separately.
+    ;; some functions like `exit-minibuffer' won't trigger post-command-hook
+    (unless (or (minibufferp)
+                (minibufferp -buffer-before-command))
+      (when log-mode
+        (message "restore: [%s]@[%s]." -for-buffer (current-buffer)))
+      (-restore-from-buffer))
 
     (when (and (not (local-variable-p
                      'smart-input-source--prefix-override-map-enable))
@@ -734,8 +756,29 @@ Possible values: 'normal, 'prefix, 'sequence.")
        (-to-normal-stage t))))
     (; current is normal stage
      'normal
-     (let ((restore (not (eq -buffer-before-command (current-buffer)))))
+     (let ((restore (or (not (eq -buffer-before-command (current-buffer)))
+                        (memq -real-this-command preserve-restore-triggers))))
        (-to-normal-stage restore)))))
+
+(defun -minibuffer-setup-handler ()
+  "Handler for `minibuffer-setup-hook'."
+  (when log-mode 
+    (message "enter minibuffer: [%s]@current [%s]@last [%s]@command"
+             (current-buffer)
+             -buffer-before-command
+             this-command))
+  (setq -buffer-before-minibuffer -buffer-before-command)
+  (set-english))
+
+(defun -minibuffer-exit-handler ()
+  "Handler for `minibuffer-exit-hook'."
+  (when log-mode 
+    (message "exit minibuffer: [%s]@before [%s]@command"
+             -buffer-before-minibuffer
+             this-command))
+  (with-current-buffer -buffer-before-minibuffer
+    (unless (minibufferp)
+      (-restore-from-buffer))))
 
 :autoload
 (define-minor-mode global-respect-mode
@@ -766,6 +809,8 @@ Possible values: 'normal, 'prefix, 'sequence.")
        ;; preserve buffer input source
        (add-hook 'pre-command-hook #'-preserve-pre-command-handler)
        (add-hook 'post-command-hook #'-preserve-post-command-handler)
+       (add-hook 'minibuffer-setup-hook #'-minibuffer-setup-handler)
+       (add-hook 'minibuffer-exit-hook #'-minibuffer-exit-handler)
 
        ;; enable terminal focus event
        (unless (display-graphic-p)
@@ -982,7 +1027,7 @@ If POSITION is not provided, then default to be the current position."
    (; turn off the mode
     (not follow-context-mode)
     (dolist (hook follow-context-hooks)
-      (remove-hook hook #'follow-context nil t)))))
+      (remove-hook hook #'follow-context nil)))))
 
 :autoload
 (define-globalized-minor-mode
