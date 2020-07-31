@@ -50,7 +50,8 @@
       (battery :when active)
       (selection-info :priority 95)
       input-method
-      ((buffer-encoding-abbrev
+      ;; ((buffer-encoding-abbrev
+      ((buffer-encoding
         point-position
         line-column)
        :separator " | "
