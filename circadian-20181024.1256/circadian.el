@@ -84,6 +84,15 @@
           (year (nth 5 now)))
       (encode-time 0 min hour day month year))))
 
+;; next day 
+(defun circadian--encode-time2 (hour min)
+  "Encode HOUR hours and MIN minutes into a valid format for `run-at-time'."
+  (let ((now (decode-time)))
+    (let ((day (+ 1 (nth 3 now)))
+          (month (nth 4 now))
+          (year (nth 5 now)))
+      (encode-time 0 min hour day month year))))
+
 (defun circadian-themes-parse ()
   "Parse `circadian-themes' and sort by time."
   (sort
@@ -123,8 +132,9 @@
                         (circadian--encode-time
                          (cl-first (cl-first next-entry))
                          (cl-second (cl-first next-entry)))
-                      (+ (* (+ (- 23 (cl-first now)) (cl-first (cl-first (cl-first themes)))) 60 60)
-                         (* (+ (- 60 (cl-second now)) (cl-second (cl-first (cl-first themes)))) 60)))))
+		      (circadian--encode-time2
+		       (cl-first (cl-first (cl-first themes)))
+		       (cl-second (cl-first (cl-first themes)))))))
     (circadian-enable-theme theme)
     (cancel-function-timers #'circadian-activate-latest-theme)
     (run-at-time next-time nil #'circadian-activate-latest-theme)))
