@@ -40,7 +40,7 @@
     (add-to-list 'url-request-extra-headers wttrin-default-accept-language)
     (with-current-buffer
         (url-retrieve-synchronously
-         (concat "http://wttr.in/" query)
+         (concat "http://wttr.in/" query "?m") ; Weather Units 使用 °C km/h 等避免默认 °F
          (lambda (status) (switch-to-buffer (current-buffer))))
       (decode-coding-string (buffer-string) 'utf-8))))
 
